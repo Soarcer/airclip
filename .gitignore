@@ -1,4 +1,6 @@
-/target
+# Unanchored so nested build dirs are ignored too — apps/windows/target/ survives from
+# the pre-workspace layout, and "/target" would only have matched the root one.
+target/
 
 # Cargo.lock IS committed: this workspace ships a binary (airclip-windows), and Rust
 # convention is to lock applications so builds and `cargo audit` are reproducible.

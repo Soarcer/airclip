@@ -1,0 +1,23 @@
+# T-13 — winget installer manifest (draft; not submitted until v1 ships).
+# Validate locally with:  winget validate --manifest winget\
+PackageIdentifier: NARRION.AirClip
+PackageVersion: 0.1.0
+InstallerType: wix
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ReleaseDate: 2026-08-04
+InstallerSwitches:
+  # Mirrors the LAUNCHATSTARTUP property in wix/main.wxs.
+  Custom: LAUNCHATSTARTUP=1
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/narrion/airclip/releases/download/v0.1.0/AirClip-0.1.0-x86_64.msi
+    # Filled in by the release job from the built MSI.
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    ProductCode: '{6F3A9C42-2B8E-4E5D-9A1F-7C0D5E8B4A16}'
+ManifestType: installer
+ManifestVersion: 1.6.0

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<!--
+  T-13 — WiX installer for the AirClip agent (SPEC R8: ≤ 6 MB, no runtime deps).
+
+  Three things the app cannot do for itself and the installer must:
+    1. Inbound firewall rule for TCP 49517 — without it Windows silently drops the
+       phone's connection on first run and pairing appears to "just not work".
+    2. AUMID registration — WinRT toasts from an unpackaged app are dropped on the
+       floor unless the shortcut carries a System.AppUserModel.ID.
+    3. Optional autostart, mirroring the tray's own HKCU\...\Run value.
+
+  Build:  cargo wix --no-build --nocapture   (after `cargo build --release`)
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+  <Product Id="*"
+           Name="AirClip"
+           UpgradeCode="6F3A9C42-2B8E-4E5D-9A1F-7C0D5E8B4A16"
+           Manufacturer="NARRION LLC"
+           Language="1033"
+           Codepage="1252"
+           Version="$(var.Version)">
+
+    <Package Id="*"
+             Keywords="Installer"
+             Description="AirClip — LAN clipboard bridge for iPhone and Windows"
+             Manufacturer="NARRION LLC"
+             InstallerVersion="450"
+             Languages="1033"
+             Compressed="yes"
+             InstallScope="perUser"
+             SummaryCodepage="1252" />
+
+    <!-- perUser install: identity keys are DPAPI-sealed per user, so a machine-wide
+         install would give a second user an agent that cannot read its own store. -->
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of AirClip is already installed." />
+
+    <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" CompressionLevel="high" />
+
+    <Property Id="ARPPRODUCTICON" Value="ProductICO" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/narrion/airclip" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+
+    <!-- Ticked by default: an agent that is not running cannot receive a beam, and the
+         tray exposes the same toggle for anyone who disagrees. -->
+    <Property Id="LAUNCHATSTARTUP" Value="1" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="APPLICATIONFOLDER" Name="AirClip">
+
+          <Component Id="MainExecutable" Guid="*">
+            <File Id="AirClipEXE"
+                  Name="airclip-windows.exe"
+                  Source="$(var.CargoTargetBinDir)\airclip-windows.exe"
+                  KeyPath="yes">
+
+              <!-- (1) Inbound rule, scoped to the local subnet only. ADR-2 promises
+                   nothing leaves the LAN; the rule should not say otherwise. -->
+              <fire:FirewallException Id="AirClipInbound"
+                                      Name="AirClip (TCP 49517)"
+                                      Port="49517"
+                                      Protocol="tcp"
+                                      Scope="localSubnet"
+                                      IgnoreFailure="no"
+                                      Description="Allows your paired iPhone to reach AirClip on this PC." />
+            </File>
+          </Component>
+
+          <!-- (3) Autostart, mirroring the tray toggle's registry value exactly. -->
+          <Component Id="AutostartEntry" Guid="*">
+            <Condition><![CDATA[LAUNCHATSTARTUP = "1"]]></Condition>
+            <RegistryValue Root="HKCU"
+                           Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                           Name="AirClip"
+                           Type="string"
+                           Value="&quot;[APPLICATIONFOLDER]airclip-windows.exe&quot;"
+                           KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="AirClip">
+
+          <!-- (2) The AUMID lives on the shortcut. WinRT resolves toasts through it;
+               without this the ToastNotifier is created but nothing is ever shown. -->
+          <Component Id="ApplicationShortcut" Guid="*">
+            <Shortcut Id="ApplicationStartMenuShortcut"
+                      Name="AirClip"
+                      Description="LAN clipboard bridge for iPhone"
+                      Target="[APPLICATIONFOLDER]airclip-windows.exe"
+                      WorkingDirectory="APPLICATIONFOLDER">
+              <ShortcutProperty Key="System.AppUserModel.ID" Value="com.narrion.AirClip" />
+            </Shortcut>
+            <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
+            <RegistryValue Root="HKCU"
+                           Key="Software\NARRION\AirClip"
+                           Name="installed"
+                           Type="integer"
+                           Value="1"
+                           KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Feature Id="Complete" Title="AirClip" Level="1" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Absent="disallow">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="AutostartEntry" />
+    </Feature>
+
+    <Icon Id="ProductICO" SourceFile="wix\airclip.ico" />
+
+    <!-- Leave %LOCALAPPDATA%\AirClip (identity + pairings) alone on uninstall: a
+         reinstall should not silently invalidate the phone's pairing. Removing it is a
+         deliberate "Forget device" action in the tray. -->
+  </Product>
+</Wix>

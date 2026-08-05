@@ -1,0 +1,36 @@
+PackageIdentifier: NARRION.AirClip
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: NARRION LLC
+PublisherUrl: https://github.com/narrion
+PublisherSupportUrl: https://github.com/narrion/airclip/issues
+Author: Bernhard
+PackageName: AirClip
+PackageUrl: https://github.com/narrion/airclip
+License: MIT
+LicenseUrl: https://github.com/narrion/airclip/blob/main/LICENSE
+ShortDescription: LAN-only, end-to-end encrypted clipboard bridge between iPhone and Windows.
+Description: |-
+  AirClip moves text and URLs between an iPhone and a Windows PC over your local
+  network. Copy on the iPhone, press the Action Button, and it is on the PC clipboard
+  in under a second; pull the PC's recent clips from the AirClip keyboard inside any
+  text field.
+
+  No account, no cloud, no relay server. Devices pair once by scanning a QR code and
+  confirming four emoji, then talk directly over your Wi-Fi with ChaCha20-Poly1305
+  encryption. Nothing ever leaves your network — verifiable with a packet capture.
+Moniker: airclip
+Tags:
+  - clipboard
+  - iphone
+  - ios
+  - sync
+  - lan
+  - privacy
+  - e2ee
+ReleaseNotes: |-
+  First preview. iPhone → PC beaming, QR pairing with emoji verification, and the
+  Windows tray agent.
+ReleaseNotesUrl: https://github.com/narrion/airclip/releases/tag/v0.1.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

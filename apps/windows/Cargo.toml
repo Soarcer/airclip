@@ -1,0 +1,45 @@
+[package]
+name = "airclip-windows"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+airclip-core = { path = "../../crates/airclip-core", features = ["mdns"] }
+tokio = { version = "1.53", features = ["full"] }
+tokio-util.workspace = true
+futures-util = { version = "0.3", features = ["sink"] }
+getrandom.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+serde.workspace = true
+serde_json = "1.0"
+hex.workspace = true
+anyhow = "1.0"
+if-addrs = "0.15"          # enumerate local IPv4/IPv6 for the pairing QR (PROTOCOL §7.1)
+
+# Windows-only integration (T-10..T-13). cfg-gated so the workspace
+# builds on non-Windows hosts for core development.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",            # WNDCLASSW::hbrBackground
+    "Win32_Security_Cryptography",
+    "UI_Notifications",
+    "Data_Xml_Dom",
+] }
+# Autostart toggle. Saves ~60 lines of unsafe RegSetValueExW/RegQueryValueExW plumbing
+# for the one HKCU\...\Run value we own; same Microsoft `windows-rs` family.
+windows-registry = "0.6"
+tray-icon = "0.24"
+egui = "0.35"
+# glow (OpenGL) backend, not wgpu: wgpu-hal/gpu-allocator pin an older `windows` crate and
+# collide with 0.62 here. Also drops ~40 crates — ADR-6 wants the agent dependency-light
+# and SPEC R8 caps the installer at 6 MB.
+eframe = { version = "0.35", default-features = false, features = ["glow", "default_fonts"] }
+qrcode = "0.14"
