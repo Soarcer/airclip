@@ -1,0 +1,12 @@
+{
+  "$comment": "P1 TASK: expand to full draft 2020-12 schemas per PROTOCOL.md §2-4. This skeleton pins the $ids and object names both codebases import.",
+  "$defs": {
+    "Clip":           { "$id": "https://clipbeam.dev/schema/v1/clip" },
+    "ClipShorthand":  { "$id": "https://clipbeam.dev/schema/v1/clip-shorthand" },
+    "SealedEnvelope": { "$id": "https://clipbeam.dev/schema/v1/sealed-envelope" },
+    "PairRequest":    { "$id": "https://clipbeam.dev/schema/v1/pair-request" },
+    "PairResponse":   { "$id": "https://clipbeam.dev/schema/v1/pair-response" },
+    "InfoResponse":   { "$id": "https://clipbeam.dev/schema/v1/info-response" },
+    "ErrorBody":      { "$id": "https://clipbeam.dev/schema/v1/error" }
+  }
+}
