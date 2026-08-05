@@ -193,7 +193,8 @@ jobs:
     steps:
       - name: Verify all jobs succeeded
         run: |
-          results='${{ join(needs.*.result, " ") }}'
+          # Expression strings must be single-quoted; double quotes fail at startup.
+          results='${{ join(needs.*.result, ' ') }}'
           echo "job results: $results"
           for r in $results; do
             if [ "$r" != "success" ]; then
