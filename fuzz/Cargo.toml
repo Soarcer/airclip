@@ -1,0 +1,25 @@
+[package]
+name = "airclip-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+airclip-core = { path = "../crates/airclip-core" }
+bytes = "1.12"
+tokio-util = { version = "0.7", features = ["codec"] }
+
+[[bin]]
+name = "frame"
+path = "fuzz_targets/frame.rs"
+test = false
+doc = false
+bench = false
+
+# Excluded from the parent workspace: cargo-fuzz builds this crate standalone on
+# nightly with sanitizers. `cargo test --workspace` must not try to compile it.
+[workspace]
