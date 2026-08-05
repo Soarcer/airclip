@@ -102,7 +102,8 @@ Full two-device matrix: pair/unpair/re-pair, beam under weak RSSI, PC sleep/wake
 
 ## Checklist mirror (tick as merged)
 
-- [ ] T-00 CI
+- [x] T-00 CI — fmt/clippy/tests on ubuntu+windows, core built for both iOS targets,
+      fuzz smoke run, content-logging lint, self-activating bindings-freshness gate
 - [x] T-01 frame codec — tokio codec + fuzz target + proptests
 - [x] T-02 crypto — RFC 7748/5869/8439 KATs pinned, SAS vectors, nonce property tests
 - [x] T-03 pairing FSM — QR round-trip, token TTL/reuse, MITM SAS divergence, MAC verify

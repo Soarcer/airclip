@@ -52,7 +52,17 @@ airclip/
 
 ## Status
 
-Phase 1 (text, iPhone→PC + PC→iPhone pull, pairing, Windows tray) — in development. See `docs/PHASE-1-TASKS.md`.
+Phase 1 in development. See `docs/PHASE-1-TASKS.md` for the sequenced plan.
+
+| Area | State |
+|---|---|
+| Protocol core — framing, crypto, pairing, session, discovery | **done** (T-01–T-05) |
+| Windows agent — server, keystore, clipboard, tray, installer | **done** (T-10–T-13) |
+| CI | **done** (T-00) |
+| iOS — FFI surface, app, beam paths, keyboard | not started (T-06–T-09) |
+
+The Windows side works end to end today: pair, beam iPhone→PC, and pull staged clips,
+all verifiable without an iPhone via `--simulate-peer` below.
 
 ## Building
 
@@ -60,12 +70,35 @@ Phase 1 (text, iPhone→PC + PC→iPhone pull, pairing, Windows tray) — in dev
 # Core + Windows agent (from repo root)
 cargo build --workspace
 
-# Run core tests
+# Tests: protocol core, then the whole workspace
 cargo test -p airclip-core
+cargo test --workspace
 
-# iOS: generate UniFFI bindings + xcframework (macOS)
+# Required clean before commit
+cargo fmt --all
+cargo clippy --workspace --all-targets -- -D warnings
+
+# iOS: generate UniFFI bindings + xcframework (macOS or the CI macOS runner)
 ./scripts/gen-ios-bindings.sh
 ```
+
+## Trying it without an iPhone
+
+The agent can drive itself: `--simulate-peer` runs the *phone* role from the same
+`airclip-core` code the real app will use, so this exercises the actual protocol rather
+than a mock.
+
+```bash
+# Terminal 1 — start the agent and open a pairing window
+cargo run -p airclip-windows -- --pair
+
+# Terminal 2 — paste the printed airclip:// URL
+cargo run -p airclip-windows -- --simulate-peer "airclip://pair?v=1&..."
+```
+
+Expect a full transcript — `PAIR_REQ → PAIR_ACK → SAS → PAIR_CONFIRM`, then
+`HELLO → HELLO_ACK`, a `CLIP_PUSH`, and a staged pull — after which the beamed text is
+on your Windows clipboard. The four SAS emoji printed by both sides must match.
 
 ## License
 

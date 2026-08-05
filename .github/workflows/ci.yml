@@ -1,0 +1,203 @@
+# T-00 — CI. Every job here must stay green on main (docs/PHASE-1-TASKS.md).
+#
+# Job split follows CLAUDE.md: airclip-core is platform-free and is tested on Linux and
+# Windows; the agent's clipboard/tray/DPAPI code is cfg-gated to Windows, so the full
+# workspace is only built there. The macOS job exists because the maintainer has no Mac —
+# it is the only place the core is proven to compile for iOS (CLAUDE.md rule 5).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Keep CI logs free of the noise a full backtrace adds; failures still show the panic.
+  RUST_BACKTRACE: 1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------- style
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  # ------------------------------------------------------- core (portable)
+  core:
+    name: core / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: core-${{ matrix.os }}
+
+      - name: Clippy (all features)
+        run: cargo clippy -p airclip-core --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test -p airclip-core --all-targets
+
+      # mDNS needs multicast, which hosted runners may block. The discovery test skips
+      # itself in that case rather than failing, so this proves the feature compiles and
+      # everything else still passes with it enabled.
+      - name: Test (mdns feature)
+        run: cargo test -p airclip-core --features mdns --all-targets
+
+  # -------------------------------------------------- windows agent (full)
+  agent:
+    name: windows agent
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: agent-windows
+
+      - name: Clippy (workspace)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test (workspace)
+        run: cargo test --workspace --all-targets
+
+      # SPEC R8 budgets the installer at 6 MB. Track the stripped binary so a careless
+      # dependency shows up as a diff in the log rather than at release time.
+      - name: Release build and size
+        shell: bash
+        run: |
+          cargo build --release -p airclip-windows
+          size=$(stat -c%s target/release/airclip-windows.exe 2>/dev/null \
+                 || stat -f%z target/release/airclip-windows.exe)
+          echo "airclip-windows.exe: $((size / 1024)) KiB"
+          echo "### Agent binary: $((size / 1024)) KiB" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -gt 6291456 ]; then
+            echo "::warning::binary exceeds the 6 MB budget in SPEC R8"
+          fi
+
+  # ------------------------------------------------------------ iOS target
+  # The maintainer develops on Windows and has no Mac, so this is the only place the
+  # core is compiled for a device. It catches a platform-specific dependency creeping
+  # into airclip-core long before the iOS lane starts.
+  ios-core:
+    name: core / ios targets
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios-core
+
+      - name: Build for device
+        run: cargo build -p airclip-core --target aarch64-apple-ios
+
+      - name: Build for simulator
+        run: cargo build -p airclip-core --target aarch64-apple-ios-sim
+
+  # ------------------------------------------------- FFI bindings freshness
+  # Self-activating: does nothing until T-06 lands src/ffi.rs, then fails any PR whose
+  # checked-in Swift bindings do not match the Rust source that generates them.
+  bindings:
+    name: ffi bindings up to date
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check whether the FFI surface exists yet
+        id: ffi
+        run: |
+          if [ -f crates/airclip-core/src/ffi.rs ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "src/ffi.rs not present yet (T-06); skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.ffi.outputs.present == 'true'
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        if: steps.ffi.outputs.present == 'true'
+
+      - name: Regenerate bindings
+        if: steps.ffi.outputs.present == 'true'
+        run: ./scripts/gen-ios-bindings.sh
+
+      - name: Fail if bindings are stale
+        if: steps.ffi.outputs.present == 'true'
+        run: |
+          git diff --exit-code apps/ios/Generated \
+            || { echo "::error::bindings are stale — run scripts/gen-ios-bindings.sh"; exit 1; }
+
+  # ------------------------------------------------------------ guardrails
+  lint-no-content-logging:
+    name: no clipboard content in logs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # CLAUDE.md rule 4. Cheap, and the failure mode it guards against (a debug log
+      # quietly printing a password someone copied) is unrecoverable once shipped.
+      - run: bash scripts/lint-no-content-logging.sh
+
+  fuzz:
+    name: fuzz target builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # libFuzzer needs nightly and does not build on MSVC, which is why the same
+      # invariants are also covered by proptests in the normal test run.
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: fuzz
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Build target
+        run: cargo fuzz build frame
+      # A short smoke run catches anything a fresh corpus trips over immediately;
+      # long campaigns belong in a scheduled job, not on every push.
+      - name: Smoke run (30s)
+        run: cargo fuzz run frame -- -max_total_time=30
+
+  # A single required check keeps branch protection simple: one status to gate on.
+  ci-ok:
+    name: CI passed
+    if: always()
+    needs: [fmt, core, agent, ios-core, bindings, lint-no-content-logging, fuzz]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          results='${{ join(needs.*.result, " ") }}'
+          echo "job results: $results"
+          for r in $results; do
+            if [ "$r" != "success" ]; then
+              echo "::error::a required job did not succeed"
+              exit 1
+            fi
+          done
