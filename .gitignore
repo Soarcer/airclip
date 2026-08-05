@@ -1,0 +1,10 @@
+/target
+
+# Cargo.lock IS committed: this workspace ships a binary (airclip-windows), and Rust
+# convention is to lock applications so builds and `cargo audit` are reproducible.
+# (Libraries omit it; airclip-core is consumed only from inside this workspace.)
+apps/ios/Generated/
+*.xcframework
+xcuserdata/
+DerivedData/
+.DS_Store

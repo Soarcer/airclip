@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = ["crates/airclip-core", "apps/windows"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/narrion/airclip"
+
+[workspace.dependencies]
+tokio = { version = "1.53", features = ["rt", "net", "io-util", "time", "sync", "macros"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+bytes = "1.12"
+serde = { version = "1.0", features = ["derive"] }
+ciborium = "0.2"
+thiserror = "2.0"
+tracing = "0.1"
+hex = "0.4"
+base64 = "0.23"
+url = "2.5"
+
+# Crypto per PROTOCOL.md §6. The scaffold's zeroize pin (=1.8.1) existed only to dodge
+# zeroize_derive's edition2024 requirement on pre-1.85 toolchains; this box is on 1.93,
+# so the pin is obsolete and zeroize's derive feature is available again.
+# x25519-dalek 3.0 dropped the `alloc` feature and gates RNG helpers behind `getrandom`.
+x25519-dalek = { version = "3.0", default-features = false, features = ["precomputed-tables", "static_secrets", "zeroize", "getrandom"] }
+chacha20poly1305 = "0.11"
+blake3 = "1.8"
+hkdf = "0.13"
+sha2 = "0.11"
+# rand_core 0.10 no longer re-exports OsRng; take randomness from getrandom directly.
+getrandom = "0.4"
+zeroize = { version = "1.9", features = ["derive"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = "z"
