@@ -151,6 +151,13 @@ struct CoreState {
     hints: Vec<std::net::SocketAddr>,
     /// Live pairing exchange, waiting on the user's emoji comparison.
     pending: Option<PendingPairing>,
+    /// Addresses carried by the QR we are pairing against.
+    ///
+    /// Promoted to `hints` on success so the first beam works immediately. Without this
+    /// a user can pair (pairing dials the QR's hosts directly) and then have every beam
+    /// fail as unreachable while mDNS is still settling — a confusing first run for
+    /// something that just visibly worked.
+    pending_hosts: Vec<std::net::SocketAddr>,
 }
 
 /// The one object Swift holds. Owns the runtime and all mutable state.
@@ -205,6 +212,7 @@ impl CoreHandle {
                 peers,
                 hints: Vec::new(),
                 pending: None,
+                pending_hosts: Vec::new(),
             }),
             keystore,
             listener,
@@ -258,9 +266,11 @@ impl CoreHandle {
     /// basis; nothing is stored until [`Self::confirm_sas`].
     pub fn start_pairing(&self, qr_url: String, display_name: String) -> Result<(), FfiError> {
         let qr = QrPayload::parse(&qr_url).map_err(|e| FfiError::Rejected(e.to_string()))?;
+        let qr_hosts = client::resolve_hosts(&qr.hosts);
 
         let identity = {
-            let st = self.state.lock().unwrap();
+            let mut st = self.state.lock().unwrap();
+            st.pending_hosts = qr_hosts;
             st.identity.clone()
         };
 
@@ -312,6 +322,12 @@ impl CoreHandle {
             if let Ok(json) = serde_json::to_string(&st.peers) {
                 self.keystore.store_pairings(json);
             }
+            // The QR's addresses are known-good — we just completed a pairing over them.
+            for addr in std::mem::take(&mut st.pending_hosts) {
+                if !st.hints.contains(&addr) {
+                    st.hints.push(addr);
+                }
+            }
         }
         self.listener.on_event(CoreEvent::Paired {
             device_id,
@@ -322,7 +338,9 @@ impl CoreHandle {
 
     /// The user rejected the emoji. Drops the connection without sending anything.
     pub fn cancel_pairing(&self) {
-        self.state.lock().unwrap().pending = None;
+        let mut st = self.state.lock().unwrap();
+        st.pending = None;
+        st.pending_hosts.clear();
     }
 
     pub fn forget_peer(&self, device_id: String) {
