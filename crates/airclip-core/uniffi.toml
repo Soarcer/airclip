@@ -1,0 +1,8 @@
+# UniFFI Swift binding configuration (T-06).
+#
+# module_name is what Swift imports and what the xcframework is named; keep it in sync
+# with scripts/gen-ios-bindings.sh and the Xcode target's framework search paths.
+[bindings.swift]
+module_name = "AirClipCore"
+cdylib_name = "airclip_core"
+generate_immutable_records = true

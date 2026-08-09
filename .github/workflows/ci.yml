@@ -143,8 +143,10 @@ jobs:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim
       - uses: Swatinem/rust-cache@v2
         if: steps.ffi.outputs.present == 'true'
+        with:
+          key: bindings-macos
 
-      - name: Regenerate bindings
+      - name: Regenerate bindings and xcframework
         if: steps.ffi.outputs.present == 'true'
         run: ./scripts/gen-ios-bindings.sh
 
@@ -153,6 +155,21 @@ jobs:
         run: |
           git diff --exit-code apps/ios/Generated \
             || { echo "::error::bindings are stale — run scripts/gen-ios-bindings.sh"; exit 1; }
+
+      # T-06 acceptance: the generated Swift must actually compile for the simulator.
+      # A typecheck (not a link) is enough to catch a surface that generates but is not
+      # valid Swift — and it needs no signing, device or app target.
+      - name: Swift smoke typecheck (simulator arch)
+        if: steps.ffi.outputs.present == 'true'
+        run: |
+          hdr=$(mktemp -d)
+          cp apps/ios/Generated/*.h "$hdr/"
+          cp apps/ios/Generated/AirClipCoreFFI.modulemap "$hdr/module.modulemap"
+          xcrun --sdk iphonesimulator swiftc \
+            -target arm64-apple-ios17.0-simulator \
+            -typecheck -I "$hdr" \
+            apps/ios/Generated/AirClipCore.swift
+          echo "Swift bindings typecheck cleanly for the simulator." >> "$GITHUB_STEP_SUMMARY"
 
   # ------------------------------------------------------------ guardrails
   lint-no-content-logging:

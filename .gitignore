@@ -5,7 +5,9 @@ target/
 # Cargo.lock IS committed: this workspace ships a binary (airclip-windows), and Rust
 # convention is to lock applications so builds and `cargo audit` are reproducible.
 # (Libraries omit it; airclip-core is consumed only from inside this workspace.)
-apps/ios/Generated/
+# apps/ios/Generated/ is deliberately NOT ignored: ARCHITECTURE §2 checks the Swift
+# bindings in so an Xcode build never has to run Rust, and CI's freshness gate diffs
+# them. The xcframework stays out — it is a large binary artefact the script rebuilds.
 *.xcframework
 xcuserdata/
 DerivedData/

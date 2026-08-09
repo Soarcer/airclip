@@ -4,10 +4,22 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 
+[lib]
+# staticlib is what xcodebuild bundles into AirClipCore.xcframework; lib keeps the
+# crate usable from the Windows agent and the test harnesses.
+crate-type = ["lib", "staticlib"]
+
 [features]
 default = []
 mdns = ["dep:mdns-sd"]      # Windows agent enables; iOS uses NWBrowser via FFI hints
-ffi = ["dep:uniffi"]        # iOS bindings build enables
+ffi = ["dep:uniffi", "dep:serde_json"]   # iOS bindings build enables
+
+# Built only for the bindings pipeline; proc-macro UniFFI reads metadata out of this
+# same crate, so the generator cannot be a standalone tool.
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["ffi"]
 
 [dependencies]
 tokio.workspace = true
@@ -17,6 +29,7 @@ serde.workspace = true
 ciborium.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+futures-util = { version = "0.3", features = ["sink"] }
 hex.workspace = true
 base64.workspace = true
 url.workspace = true
@@ -31,7 +44,10 @@ getrandom.workspace = true
 zeroize.workspace = true
 
 mdns-sd = { version = "0.20", optional = true }
-uniffi = { version = "0.32", optional = true }
+uniffi = { version = "0.32", optional = true, features = ["cli"] }
+# Only the FFI layer serialises pairing records (the Keychain stores them as JSON);
+# the Windows agent does its own serialisation behind DPAPI.
+serde_json = { version = "1.0", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.53", features = ["full", "test-util"] }

@@ -11,7 +11,7 @@
 use std::net::SocketAddr;
 
 use crate::error::{Error, Result};
-use crate::{DeviceId, MDNS_SERVICE};
+use crate::DeviceId;
 
 /// Display names are capped so the TXT record stays inside one MTU (PROTOCOL §4).
 pub const MAX_NAME_BYTES: usize = 32;
@@ -151,7 +151,7 @@ mod mdns_impl {
         pub fn browse(&self) -> Result<std::sync::mpsc::Receiver<PeerHint>> {
             let rx = self
                 .daemon
-                .browse(MDNS_SERVICE)
+                .browse(crate::MDNS_SERVICE)
                 .map_err(|e| Error::Cbor(format!("mdns browse: {e}")))?;
             let (tx, out) = std::sync::mpsc::channel();
 
@@ -218,7 +218,7 @@ mod mdns_impl {
             // Empty address list + enable_addr_auto: mdns-sd tracks interface changes
             // for us, which PROTOCOL §4 wants on a laptop moving between networks.
             let info = ServiceInfo::new(
-                MDNS_SERVICE,
+                crate::MDNS_SERVICE,
                 &instance,
                 &format!("{instance}.local."),
                 "",
@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn instance_name_is_the_device_id_hex() {
         assert_eq!(instance_name(&id()), id().hex());
-        assert_eq!(MDNS_SERVICE, "_airclip._tcp.local.");
+        assert_eq!(crate::MDNS_SERVICE, "_airclip._tcp.local.");
     }
 
     /// Two in-process daemons discovering each other (T-05 acceptance).

@@ -4,6 +4,7 @@
 //! Modules are stubs pending tasks T-01..T-06 in docs/PHASE-1-TASKS.md.
 
 pub mod cbor;
+pub mod client;
 pub mod crypto;
 pub mod discovery;
 pub mod error;
@@ -11,6 +12,14 @@ pub mod frame;
 pub mod pairing;
 pub mod session;
 pub mod stage;
+
+#[cfg(feature = "ffi")]
+pub mod ffi;
+
+// UniFFI's proc-macro mode needs this once per crate to emit the scaffolding that the
+// generated Swift links against.
+#[cfg(feature = "ffi")]
+uniffi::setup_scaffolding!();
 // pub mod discovery;   // T-05
 // #[cfg(feature = "ffi")]
 // pub mod ffi;         // T-06

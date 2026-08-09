@@ -109,7 +109,8 @@ Full two-device matrix: pair/unpair/re-pair, beam under weak RSSI, PC sleep/wake
 - [x] T-03 pairing FSM — QR round-trip, token TTL/reuse, MITM SAS divergence, MAC verify
 - [x] T-04 session + stage — loopback harness green end to end
 - [x] T-05 discovery — TXT codec + two in-process instances discovering over real mDNS
-- [ ] T-06 FFI
+- [x] T-06 FFI — CoreHandle + commands + CoreEvent/Keystore callbacks; bindings
+      generated and checked in; CI regenerates, diffs, and typechecks them for the sim
 - [ ] T-07 iOS app + pairing
 - [ ] T-08 beam paths
 - [ ] T-09 keyboard (flagged)
