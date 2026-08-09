@@ -171,6 +171,59 @@ jobs:
             apps/ios/Generated/AirClipCore.swift
           echo "Swift bindings typecheck cleanly for the simulator." >> "$GITHUB_STEP_SUMMARY"
 
+  # ------------------------------------------------------------- iOS app
+  # The maintainer writes Swift on Windows with no way to compile it, so this job is the
+  # only thing standing between a typo and a broken main. Simulator build only: no
+  # signing, no device, no Apple account needed.
+  ios-app:
+    name: ios app builds
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check whether the app sources exist yet
+        id: app
+        run: |
+          if [ -f apps/ios/project.yml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "apps/ios/project.yml not present yet; skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.app.outputs.present == 'true'
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        if: steps.app.outputs.present == 'true'
+        with:
+          key: ios-app
+
+      # The app links the xcframework, so it has to be built before the project opens.
+      - name: Build core xcframework
+        if: steps.app.outputs.present == 'true'
+        run: ./scripts/gen-ios-bindings.sh
+
+      - name: Generate Xcode project
+        if: steps.app.outputs.present == 'true'
+        run: |
+          brew install xcodegen
+          cd apps/ios && xcodegen generate
+
+      - name: Build for simulator
+        if: steps.app.outputs.present == 'true'
+        run: |
+          cd apps/ios
+          xcodebuild build \
+            -project AirClip.xcodeproj \
+            -scheme AirClip \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -40
+
   # ------------------------------------------------------------ guardrails
   lint-no-content-logging:
     name: no clipboard content in logs
@@ -205,7 +258,7 @@ jobs:
   ci-ok:
     name: CI passed
     if: always()
-    needs: [fmt, core, agent, ios-core, bindings, lint-no-content-logging, fuzz]
+    needs: [fmt, core, agent, ios-core, bindings, ios-app, lint-no-content-logging, fuzz]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all jobs succeeded
