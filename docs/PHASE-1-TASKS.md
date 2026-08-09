@@ -111,7 +111,11 @@ Full two-device matrix: pair/unpair/re-pair, beam under weak RSSI, PC sleep/wake
 - [x] T-05 discovery — TXT codec + two in-process instances discovering over real mDNS
 - [x] T-06 FFI — CoreHandle + commands + CoreEvent/Keystore callbacks; bindings
       generated and checked in; CI regenerates, diffs, and typechecks them for the sim
-- [ ] T-07 iOS app + pairing
+- [~] T-07 iOS app + pairing — code complete and **building for the simulator in CI**
+      (XcodeGen spec, Keychain store, NWBrowser discovery, Home/Pair/Settings).
+      Acceptance is manual and still owed: pair against the real Windows agent, confirm
+      the SAS matches, relaunch retains pairing, airplane mode shows unreachable ≤ 3 s.
+      All four need a device — see the Mac-access notes in apps/ios/README.md.
 - [ ] T-08 beam paths
 - [ ] T-09 keyboard (flagged)
 - [x] T-10 win server + sim-peer — verified: `--simulate-peer` completes pair+beam+pull
