@@ -12,16 +12,30 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-TARGETS=(aarch64-apple-ios aarch64-apple-ios-sim)
+# Device slice, plus both simulator architectures. x86_64 matters: on an Intel Mac the
+# iOS Simulator is x86_64, so an arm64-only simulator slice will not link there — which
+# includes an OCLP-patched Intel Mac, a supported development setup for this project.
+DEVICE_TARGET=aarch64-apple-ios
+SIM_TARGETS=(aarch64-apple-ios-sim x86_64-apple-ios)
 LIB=libairclip_core.a
 OUT=apps/ios/Generated
 XCFRAMEWORK=apps/ios/AirClipCore.xcframework
+SIM_FAT=target/ios-sim-universal
 
-echo "==> building airclip-core for ${#TARGETS[@]} iOS targets"
-for t in "${TARGETS[@]}"; do
+echo "==> building airclip-core for device + ${#SIM_TARGETS[@]} simulator architectures"
+for t in "$DEVICE_TARGET" "${SIM_TARGETS[@]}"; do
   rustup target add "$t" >/dev/null 2>&1 || true
   cargo build -p airclip-core --release --features ffi --target "$t"
 done
+
+# One xcframework slice cannot list two architectures separately, so the simulator
+# libraries are lipo'd into a single fat archive first.
+echo "==> merging simulator architectures"
+mkdir -p "$SIM_FAT"
+lipo -create \
+  "target/aarch64-apple-ios-sim/release/${LIB}" \
+  "target/x86_64-apple-ios/release/${LIB}" \
+  -output "${SIM_FAT}/${LIB}"
 
 echo "==> generating Swift bindings"
 rm -rf "$OUT"
@@ -29,7 +43,7 @@ mkdir -p "$OUT"
 # --library reads metadata out of the compiled staticlib, which is how proc-macro
 # UniFFI works; there is no .udl file to point at.
 cargo run -p airclip-core --features ffi --bin uniffi-bindgen -- \
-  generate --library "target/${TARGETS[0]}/release/${LIB}" \
+  generate --library "target/${DEVICE_TARGET}/release/${LIB}" \
   --language swift --out-dir "$OUT" --no-format
 
 # xcodebuild requires the headers directory to contain `module.modulemap` under that
@@ -41,8 +55,8 @@ cp "$OUT"/AirClipCoreFFI.modulemap "$HEADERS/module.modulemap"
 echo "==> assembling xcframework"
 rm -rf "$XCFRAMEWORK"
 xcodebuild -create-xcframework \
-  -library "target/aarch64-apple-ios/release/${LIB}" -headers "$HEADERS" \
-  -library "target/aarch64-apple-ios-sim/release/${LIB}" -headers "$HEADERS" \
+  -library "target/${DEVICE_TARGET}/release/${LIB}" -headers "$HEADERS" \
+  -library "${SIM_FAT}/${LIB}" -headers "$HEADERS" \
   -output "$XCFRAMEWORK"
 rm -rf "$HEADERS"
 

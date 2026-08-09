@@ -107,7 +107,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
       - uses: Swatinem/rust-cache@v2
         with:
           key: ios-core
@@ -140,7 +140,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: steps.ffi.outputs.present == 'true'
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
       - uses: Swatinem/rust-cache@v2
         if: steps.ffi.outputs.present == 'true'
         with:
@@ -194,7 +194,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: steps.app.outputs.present == 'true'
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
       - uses: Swatinem/rust-cache@v2
         if: steps.app.outputs.present == 'true'
         with:
